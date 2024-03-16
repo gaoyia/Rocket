@@ -99,10 +99,10 @@ macro_rules! pub_request_impl {
 
     /// Set the remote address of this request to `address`.
     ///
-    /// `address` may be any type that [can be converted into a `ListenerAddr`].
+    /// `address` may be any type that [can be converted into a `Endpoint`].
     /// If `address` fails to convert, the remote is left unchanged.
     ///
-    /// [can be converted into a `ListenerAddr`]: crate::listener::ListenerAddr#conversions
+    /// [can be converted into a `Endpoint`]: crate::listener::Endpoint#conversions
     ///
     /// # Examples
     ///

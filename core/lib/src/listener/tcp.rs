@@ -31,13 +31,13 @@ impl Listener for TcpListener {
         Ok(conn)
     }
 
-    fn socket_addr(&self) -> io::Result<Endpoint> {
+    fn endpoint(&self) -> io::Result<Endpoint> {
         self.local_addr().map(Endpoint::Tcp)
     }
 }
 
 impl Connection for TcpStream {
-    fn peer_address(&self) -> io::Result<Endpoint> {
+    fn endpoint(&self) -> io::Result<Endpoint> {
         self.peer_addr().map(Endpoint::Tcp)
     }
 }

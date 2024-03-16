@@ -83,13 +83,13 @@ impl Listener for UdsListener {
         Ok(accept)
     }
 
-    fn socket_addr(&self) -> io::Result<Endpoint> {
+    fn endpoint(&self) -> io::Result<Endpoint> {
         self.listener.local_addr()?.try_into()
     }
 }
 
 impl Connection for UnixStream {
-    fn peer_address(&self) -> io::Result<Endpoint> {
+    fn endpoint(&self) -> io::Result<Endpoint> {
         self.local_addr()?.try_into()
     }
 }

@@ -7,7 +7,7 @@ use std::error::Error as StdError;
 use yansi::Paint;
 use figment::Profile;
 
-use crate::{Rocket, Orbit};
+use crate::{Ignite, Orbit, Rocket};
 
 /// An error that occurs during launch.
 ///
@@ -89,6 +89,11 @@ pub enum ErrorKind {
     SentinelAborts(Vec<crate::sentinel::Sentry>),
     /// The configuration profile is not debug but no secret key is configured.
     InsecureSecretKey(Profile),
+    /// Liftoff failed. Contains the Rocket instance that failed to shutdown.
+    Liftoff(
+        Result<Rocket<Ignite>, Arc<Rocket<Orbit>>>,
+        Box<dyn StdError + Send + 'static>
+    ),
     /// Shutdown failed. Contains the Rocket instance that failed to shutdown.
     Shutdown(Arc<Rocket<Orbit>>),
 }
@@ -225,6 +230,11 @@ impl Error {
 
                 "aborting due to sentinel-triggered abort(s)"
             }
+            ErrorKind::Liftoff(_, error) => {
+                error!("Rocket liftoff failed due to panicking liftoff fairing(s).");
+                error_!("{error}");
+                "aborting due to failed liftoff"
+            }
             ErrorKind::Shutdown(_) => {
                 error!("Rocket failed to shutdown gracefully.");
                 "aborting due to failed shutdown"
@@ -246,6 +256,7 @@ impl fmt::Display for ErrorKind {
             ErrorKind::InsecureSecretKey(_) => "insecure secret key config".fmt(f),
             ErrorKind::Config(_) => "failed to extract configuration".fmt(f),
             ErrorKind::SentinelAborts(_) => "sentinel(s) aborted".fmt(f),
+            ErrorKind::Liftoff(_, _) => "liftoff failed".fmt(f),
             ErrorKind::Shutdown(_) => "shutdown failed".fmt(f),
         }
     }
@@ -293,40 +304,45 @@ impl fmt::Display for Empty {
 impl StdError for Empty { }
 
 /// Log an error that occurs during request processing
-pub(crate) fn log_server_error(error: &Box<dyn StdError + Send + Sync>) {
+#[track_caller]
+pub(crate) fn log_server_error(error: &(dyn StdError + 'static)) {
     struct ServerError<'a>(&'a (dyn StdError + 'static));
 
     impl fmt::Display for ServerError<'_> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             let error = &self.0;
             if let Some(e) = error.downcast_ref::<hyper::Error>() {
-                write!(f, "request processing failed: {e}")?;
+                write!(f, "request failed: {e}")?;
             } else if let Some(e) = error.downcast_ref::<io::Error>() {
-                write!(f, "connection I/O error: ")?;
+                write!(f, "connection error: ")?;
 
                 match e.kind() {
                     io::ErrorKind::NotConnected => write!(f, "remote disconnected")?,
                     io::ErrorKind::UnexpectedEof => write!(f, "remote sent early eof")?,
                     io::ErrorKind::ConnectionReset
-                    | io::ErrorKind::ConnectionAborted
-                    | io::ErrorKind::BrokenPipe => write!(f, "terminated by remote")?,
+                    | io::ErrorKind::ConnectionAborted => write!(f, "terminated by remote")?,
                     _ => write!(f, "{e}")?,
                 }
             } else {
                 write!(f, "http server error: {error}")?;
             }
 
-            if let Some(e) = error.source() {
-                write!(f, " ({})", ServerError(e))?;
-            }
-
             Ok(())
         }
     }
 
+    let mut error: &(dyn StdError + 'static) = &*error;
     if error.downcast_ref::<hyper::Error>().is_some() {
-        warn!("{}", ServerError(&**error))
+        warn!("{}", ServerError(error));
+        while let Some(source) = error.source() {
+            error = source;
+            warn_!("{}", ServerError(error));
+        }
     } else {
-        error!("{}", ServerError(&**error))
+        error!("{}", ServerError(error));
+        while let Some(source) = error.source() {
+            error = source;
+            error_!("{}", ServerError(error));
+        }
     }
 }

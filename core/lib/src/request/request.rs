@@ -47,8 +47,8 @@ pub(crate) struct ConnectionMeta {
 impl<C: Connection> From<&C> for ConnectionMeta {
     fn from(conn: &C) -> Self {
         ConnectionMeta {
-            peer_address: conn.peer_address().ok().map(Arc::new),
-            peer_certs: conn.peer_certificates().map(|c| c.into_owned()).map(Arc::new),
+            peer_address: conn.endpoint().ok().map(Arc::new),
+            peer_certs: conn.certificates().map(|c| c.into_owned()).map(Arc::new),
         }
     }
 }

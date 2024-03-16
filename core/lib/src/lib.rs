@@ -143,6 +143,7 @@ pub mod shield;
 pub mod fs;
 pub mod http;
 pub mod listener;
+pub mod shutdown;
 #[cfg(feature = "tls")]
 #[cfg_attr(nightly, doc(cfg(feature = "tls")))]
 pub mod tls;
@@ -151,7 +152,6 @@ pub mod tls;
 pub mod mtls;
 
 mod util;
-mod shutdown;
 mod server;
 mod lifecycle;
 mod state;
